@@ -1,0 +1,753 @@
+\documentclass{beamer}
+\usepackage[utf8]{inputenc}
+\usepackage{multicol}
+
+\title{\texttt{tidyr}, \texttt{dplyr} and \texttt{ggplot2}}
+\author{Ken Butler\\Lecturer (Statistics), UTSC}
+\institute{Greater Toronto Area R Users Group}
+\date{November 4, 2015}
+
+\setlength{\columnseprule}{1pt}
+
+\begin{document}
+
+\frame{\titlepage}
+
+\begin{frame}[fragile]{Does this give you a headache?}
+  
+  \begin{multicols}{2}
+\begin{verbatim}
+DrugA DrugB DrugC
+  4     6     6
+  5     8     7
+  4     4     6
+  3     5     6
+  2     4     7
+  4     6     5
+  3     5     6
+  4     8     5
+  4     6     5
+\end{verbatim}
+
+\begin{itemize}
+\item 27 migraine-suffering subjects, randomly chosen to receive
+  \emph{one} pain-killing drug
+\item On next migraine episode, take chosen drug, report pain 30
+  minutes after (1=no pain, 10=extreme pain)
+\item How do drugs compare?
+\end{itemize}
+
+\end{multicols}
+\end{frame}
+
+\begin{frame}[fragile]{The problem}
+  
+  \begin{itemize}
+  \item All numbers in data are pain scores, even though in 3 columns.
+  \item ``Wide format''.
+  \item For eg.\ boxplots, ANOVA, want \emph{2} columns:
+    \begin{itemize}
+    \item one containing \emph{all} scores
+    \item one identifying drug.
+    \end{itemize}
+  \item How to get that?
+  \end{itemize}
+  
+\end{frame}
+
+\begin{frame}[fragile]{The man behind the solution}
+  
+  \begin{multicols}{2}
+    
+    \includegraphics[width=0.5\textwidth]{hadley}
+    
+    \begin{itemize}
+    \item Hadley Wickham:
+      \begin{itemize}
+      \item \texttt{tidyr}
+      \item \texttt{dplyr}
+      \item \texttt{ggplot2}
+      \item \texttt{stringr}
+      \item \texttt{readr}
+      \item \texttt{lubridate}
+        
+      \item etc.
+
+      \end{itemize}
+    \end{itemize}
+    
+  \end{multicols}
+  
+\end{frame}
+
+\begin{frame}[fragile]{Tidy data (Wickham)}
+  
+  \begin{itemize}
+  \item Every value belongs to a \emph{variable} and an \emph{observation}.
+  \item Variables in columns.
+  \item Observations in rows.
+  \item If this is done, data called ``tidy'', ready for further analysis.
+  \item If not, have ``untidy'' data, needs tidying.
+  \item ``Tidy'' depends (somewhat) on kind of analysis you want to do.
+  \end{itemize}
+  
+\end{frame}
+
+\begin{frame}[fragile]{Our data}
+  
+<<>>=
+migraine=read.table("migraine.txt",header=T)
+migraine
+@   
+
+\begin{itemize}
+\item 3 columns all one variable. Not tidy!
+\end{itemize}
+  
+\end{frame}
+
+\begin{frame}[fragile]{\texttt{gather}: combining columns}
+  
+  \begin{itemize}
+  \item Combine columns that all measure same thing.
+  \item Input: data frame, what makes columns different, what makes
+    them same, columns to combine:
+  \end{itemize}
+  
+<<>>=
+library(tidyr)
+migraine2=gather(migraine,drug,pain,DrugA:DrugC)
+@   
+  
+\end{frame}
+
+\begin{frame}[fragile]{The result}
+  \begin{multicols}{3}
+<<>>=
+migraine2
+@     
+  \end{multicols}
+  
+  \begin{itemize}
+  \item Tidy: 
+    \begin{itemize}
+    \item One column per variable (2 columns)
+    \item One row per observation (27 rows)
+    \end{itemize}
+    \item ``Long format''.
+    \item Analysis eg.\ \verb-aov(pain~drug, data=migraine2)-.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}[fragile]{Side-by-side boxplots}
+  
+<<fig=TRUE>>=
+boxplot(pain~drug,data=migraine2)
+@   
+  
+\end{frame}
+
+\begin{frame}[fragile]{\texttt{spread}: the inverse of \texttt{gather}}
+  
+  \begin{itemize}
+  \item Our 27 migraine sufferers only tested one drug each
+    (``between-subjects design'').
+    \item But compare this (scores for 4 subjects in an ADHD study):
+      \begin{multicols}{2}
+\begin{verbatim}
+Subject When  Score
+    1   t1      13
+    1   t2      10
+    1   t3      12
+    2   t1      30
+    2   t2      20
+    2   t3      26
+    3   t1      20
+    3   t2      13
+    3   t3      17
+    4   t1      26
+    4   t2      17
+    4   t3      20
+\end{verbatim}        
+      \end{multicols}
+      
+
+    \item Tidy-ish (one variable per column).
+    \item But each subject split over 3 rows.
+    \item ``Within-subject design'': repeated-measures analysis
+      requires measurements for same subject in same line.
+    \item Need to ``undo'' gather: \texttt{spread}.
+      
+  \end{itemize}
+  
+\end{frame}
+
+
+\begin{frame}[fragile]{Spreading these data}
+
+  \begin{itemize}
+  \item \texttt{When} column is names of variables:
+<<>>=
+adhd=read.table("adhd.txt",header=T)
+spread(adhd,When,Score)
+@   
+\item Can turn this back into long format with \texttt{gather}.
+  \end{itemize}
+  
+
+\end{frame}
+
+\begin{frame}[fragile]{Columns containing combined information}
+  
+  \begin{itemize}
+  \item Common way to display data is \emph{contingency table}:
+    
+\begin{verbatim}
+Species     Disease present         Disease absent
+          Location X Location Y  Location X Location Y
+A            44         12          38        10
+B            28         22          20        18
+\end{verbatim}
+    
+    \item File might be formatted like this:
+      
+\begin{verbatim}
+Species   px    py   ax   ay
+A         44    12   38   10
+B         28    22   20   18
+\end{verbatim}
+      
+      \item Columns actually encode \emph{two} variables: whether or
+        not disease is present, and the location.
+  \end{itemize}
+  
+\end{frame}
+
+\begin{frame}[fragile]{Tidying this table (1)}
+  
+  \begin{itemize}
+  \item Gather up columns that are all frequencies:
+<<>>=
+disease=read.table("disease.txt",header=T)
+tmp=gather(disease,dis.loc,frequency,-Species)
+tmp
+@     
+  \end{itemize}
+  
+\end{frame}
+
+\begin{frame}[fragile]{Tidying this table (2)}
+  
+  \begin{itemize}
+  \item Column now called \texttt{dis.loc} contains \emph{two}
+    variables: presence or absence of disease and location.
+  \item \texttt{separate}:
+<<>>=
+separate(tmp,dis.loc,c("disease","location"),1)
+@     
+\item Data frame, variable to split, what to split into, split after
+  character 1.
+  \end{itemize}
+  
+\end{frame}
+
+
+\begin{frame}[fragile]{\texttt{dplyr}: general data manipulation}
+  
+  \begin{itemize}
+  \item selecting rows from a data frame by value
+  \item selecting columns from a data frame by name
+  \item creating new variables from old ones
+  \item summarizing variables, possibly by groups
+  \end{itemize}
+  
+  Use (long) ADHD study results in \texttt{adhd} for example.
+  
+\end{frame}
+
+\begin{frame}[fragile]{The ADHD data}
+  
+<<>>=
+adhd
+library(dplyr)
+@   
+  
+\end{frame}
+
+
+\begin{frame}[fragile]{Selecting rows (1)}
+  
+  \begin{itemize}
+  \item The rows for subject 2:
+<<>>=
+filter(adhd,Subject==2)
+@     
+
+\item The time-3 scores:
+  
+<<>>=
+filter(adhd,When=="t3")
+@   
+
+  \end{itemize}
+  
+\end{frame}
+
+\begin{frame}[fragile]{Selecting rows (2)}
+  
+  \begin{itemize}
+\item The scores bigger than 25:
+<<>>=
+filter(adhd,Score>25)
+@   
+
+\item Scores either for subject 2 or score 25+:
+  
+<<>>=
+filter(adhd,Subject==2 | Score>25)
+@   
+  \end{itemize}
+  
+\end{frame}
+
+\begin{frame}[fragile]{Selecting columns}
+  
+  Name the ones you want to keep or to omit. Thus:
+  
+  \begin{multicols}{2}
+    
+<<>>=
+select(adhd,c(Subject,
+  Score))
+@     
+
+<<>>=
+select(adhd,-When)
+@ 
+    
+  \end{multicols}
+  
+\end{frame}
+
+
+\begin{frame}[fragile]{Creating new variables}
+  
+  \begin{itemize}
+  \item Score was out of 30. Turn into a percentage:
+<<>>=
+tmp=mutate(adhd,pct=Score/30*100)
+head(tmp)
+@           
+  \end{itemize}
+  
+\end{frame}
+
+\begin{frame}[fragile]{Create percent and get rid of old score}
+  
+<<>>=
+tmp=mutate(adhd,pct=Score/30*100)
+tmp2=select(tmp,-Score)
+head(tmp2)
+@   
+
+\begin{itemize}
+\item Created a lot of temporary variables. Can we do better?
+\end{itemize}
+  
+\end{frame}
+
+\begin{frame}[fragile]{The ``pipe'' operator}
+  
+  Same effect as previous, but ``use output from last step as input to
+  next one'':
+  
+<<>>=
+adhd %>% 
+  mutate(pct=Score/30*100) %>%
+  select(-Score) %>%
+  head()
+@   
+
+\emph{In a pipe, the initial data frame argument to any function disappears.}
+  
+\end{frame}
+
+\begin{frame}[fragile]{When the data frame isn't first}
+
+  \setkeys{Gin}{width=0.6\textwidth}
+<<fig=TRUE>>=
+adhd %>% 
+  mutate(pct=Score/30*100) %>%
+  boxplot(pct~Subject,data=.)
+@   
+\setkeys{Gin}{width=0.8\textwidth}
+  
+\end{frame}
+
+\begin{frame}[fragile]{Saving pipe output to a variable}
+  
+  I like this way:
+  
+<<>>=
+adhd %>% 
+  mutate(pct=Score/30*100) %>%
+  select(-Score) -> adhd.2
+head(adhd.2)
+@   
+
+The ``right-assignment'' saves the data frame on the left (the output
+from \texttt{select}) into the variable on the \emph{right}. 
+  
+\end{frame}
+
+\begin{frame}[fragile]{Summarizing variables}
+
+  
+  \begin{itemize}
+  \item Mean \texttt{pct}, well, duh:
+
+<<>>=
+summarize(adhd.2,mean=mean(pct))
+@ 
+
+\item Summaries by \emph{groups} takes an extra step:
+  
+<<>>=
+adhd.2 %>%
+  group_by(Subject) %>%
+  summarize( pct.mean=mean(pct),
+             pct.sd=sd(pct) )
+@   
+
+  \end{itemize}
+
+  
+\end{frame}
+
+\begin{frame}[fragile]{\texttt{dplyr} and SQL}
+  
+  \begin{tabular}{ll}
+    \texttt{dplyr} & SQL \\
+    \hline
+    \texttt{select} & \texttt{select}\\
+    \texttt{filter} & \texttt{where}\\
+    \texttt{mutate} & \texttt{alter table}\\
+    \texttt{summarize} & \texttt{select mean(x) ...}\\
+    \hline
+  \end{tabular}
+  
+\end{frame}
+
+\begin{frame}[fragile]{\texttt{ggplot}: a grammar of graphics}
+  
+  \begin{itemize}
+  \item Base R graphics are functional, once you get used to the quirks.
+  \item I learned base graphics by seeing a lot of examples.
+  \item Hadley Wickham used a ``grammar of graphics'', implemented
+    in \texttt{ggplot2}.
+  \item Takes some getting used to, but once you do, \emph{everything
+      is consistent}.
+  \item Separates:
+    \begin{itemize}
+    \item what to plot
+    \item how to plot it
+    \end{itemize}
+  \item Layers on plot constructed by \emph{adding} (literally).
+  \end{itemize}
+  
+\end{frame}
+
+\setkeys{Gin}{width=0.6\textwidth}
+
+
+\begin{frame}[fragile]{Histogram of ADHD percents}
+  
+<<fig=TRUE>>=
+library(ggplot2)
+p=ggplot(adhd.2,aes(x=pct))
+p+geom_histogram()
+@   
+  
+\end{frame}
+
+\begin{frame}[fragile]{A better histogram}
+  
+<<fig=TRUE>>=
+p=ggplot(adhd.2,aes(x=pct))
+p+geom_histogram(binwidth=10)
+@   
+  
+\end{frame}
+
+\begin{frame}[fragile]{Histogram with density curve}
+  
+<<fig=TRUE>>=
+p=ggplot(adhd.2,aes(x=pct))
+p+geom_histogram(binwidth=10,aes(y=..density..))+
+  geom_density(col="blue")
+@   
+
+\end{frame}
+
+
+\begin{frame}[fragile]{Boxplot of percents by \texttt{When}}
+  
+<<fig=TRUE>>=
+p=ggplot(adhd.2,aes(x=When,y=pct))
+p+geom_boxplot()
+@   
+  
+\end{frame}
+
+\begin{frame}[fragile]{Boxplot of percents by \texttt{subject}}
+  
+<<fig=TRUE>>=
+p=ggplot(adhd.2,aes(x=factor(Subject),y=pct))
+p+geom_boxplot()
+@   
+  
+\end{frame}
+
+\begin{frame}[fragile]{Line plot of subject's percents by \texttt{When}}
+  
+<<fig=TRUE>>=
+p=ggplot(adhd.2,aes(x=When,y=pct,group=Subject))
+p+geom_line()
+@   
+  
+\end{frame}
+
+\begin{frame}[fragile]{Same line plot, with colours}
+  
+<<fig=TRUE>>=
+p=ggplot(adhd.2,aes(x=When,y=pct,group=Subject))
+p+geom_line(aes(colour=factor(Subject)))
+@   
+  
+\end{frame}
+
+\begin{frame}[fragile]{\texttt{dplyr} and \texttt{ggplot2}}
+  
+  \begin{itemize}
+  \item The first argument to \texttt{ggplot} is a data frame, so
+    \texttt{ggplot} plays nicely with pipes.
+  \item For example, to start
+    from \texttt{adhd}, produce the percentages, get rid of the
+    original scores, and then make the
+    line plot, we can do all this:
+    
+<<fred,results=hide>>=
+adhd %>% 
+  mutate(pct=Score/30*100) %>%
+  select(-Score) %>%
+  ggplot(aes(x=When,y=pct,group=Subject)) +
+    geom_line(aes(colour=factor(Subject)))
+@     
+  \end{itemize}
+  
+\end{frame}
+
+\begin{frame}[fragile]{Output}
+  
+<<fred,echo=FALSE,fig=TRUE>>=
+adhd %>% 
+  mutate(pct=Score/30*100) %>%
+  select(-Score) %>%
+  ggplot(aes(x=When,y=pct,group=Subject)) +
+    geom_line(aes(colour=factor(Subject)))
+@     
+
+  
+\end{frame}
+
+\begin{frame}[fragile]{That contingency table}
+  
+    
+\begin{verbatim}
+Species     Disease present         Disease absent
+          Location X Location Y  Location X Location Y
+A            44         12          38        10
+B            28         22          20        18
+\end{verbatim}
+
+  \begin{itemize}
+  \item   Make a plot of disease present/absent by location and species.
+  \item Technique in \texttt{ggplot} called \textbf{faceting}.
+
+  \item Code we had before, rewritten with pipes:
+    {\small
+<<>>=
+disease %>% gather(dis.loc,frequency,-Species) %>%
+  separate(dis.loc,c("disease","location"),1) -> dis.2
+head(dis.2,4)
+@     
+}
+  \end{itemize}
+
+  
+\end{frame}
+
+\begin{frame}[fragile]{Without considering species and location}
+  
+<<fig=T>>=
+dis.2 %>%
+  ggplot(aes(x=disease,weight=frequency)) + 
+    geom_bar() 
+@   
+  
+\end{frame}
+
+\begin{frame}[fragile]{By species and location}
+  
+<<fig=T>>=
+dis.2 %>%
+  ggplot(aes(x=disease,weight=frequency)) + 
+  geom_bar() + facet_grid(Species ~ location)
+@   
+  
+\end{frame}
+
+\begin{frame}[fragile]{Stacked bars, with black magic}
+  
+<<fig=T>>=
+dis.2 %>% 
+  ggplot(aes(x=factor(1),weight=frequency,fill=disease)) +
+    geom_bar(aes(y=(..count..)/
+    tapply(..count..,..PANEL..,sum)[..PANEL..])) +
+    facet_grid(Species~location)
+@   
+  
+\end{frame}
+
+
+\begin{frame}[fragile]{Or as pie charts, if you must}
+  
+  {\small
+<<fig=T>>=
+dis.2 %>% 
+  ggplot(aes(x=factor(1),weight=frequency,fill=disease)) +
+    geom_bar(aes(y=(..count..)/
+    tapply(..count..,..PANEL..,sum)[..PANEL..])) +
+    facet_grid(Species~location) + 
+    coord_polar(theta="y")
+@   
+}
+
+  
+\end{frame}
+
+
+\begin{frame}[fragile]{Soccer goalscoring}
+ 
+  \begin{itemize}
+  \item The English Premier league this year:
+  
+  {\small
+<<>>=
+premier=read.csv("premier.csv",header=T)
+tail(premier)
+@   
+}
+
+  \end{itemize}
+
+\end{frame}
+
+\begin{frame}[fragile]{Sorting out those goals}
+  
+  {\small
+<<>>=
+premier %>%
+  separate(score,c("home","away")," - ") -> goals
+tail(goals)
+@   
+}
+  
+\end{frame}
+
+\begin{frame}[fragile]{Scatterplot of goals}
+  
+<<fig=T>>=
+goals %>%
+  ggplot(aes(x=home,y=away)) + geom_point()
+@   
+  
+\end{frame}
+
+\begin{frame}[fragile]{Jittering to solve overplotting}
+  
+<<fig=TRUE>>=
+goals %>% ggplot(aes(x=home, y=away)) + geom_jitter() 
+@   
+  
+\end{frame}
+
+\begin{frame}[fragile]{Comments}
+  
+  \begin{itemize}
+  \item Default jitter is ``40\% of resolution of data'' in each
+    direction, here, 0.4 goals.
+    \item Can colour each point by the month in which the game was
+      played. 
+  \item Alternative is to plot at actual points, but have size of
+    symbol proportional to frequency.
+  \end{itemize}
+  
+\end{frame}
+
+
+\begin{frame}[fragile]{Jittered plot coloured by month}
+  
+  \begin{itemize}
+  \item Uses another Wickham package \texttt{lubridate} to extract the
+    month of a date.
+  \item My dates are text strings, so convert to R \texttt{Date}s first.
+  \item Add the colour to the \texttt{aes} for the \texttt{ggplot}.
+  \end{itemize}
+  
+<<results=hide>>=
+library(lubridate)
+goals %>% 
+  mutate(thedate=as.Date(date)) %>%
+  mutate(themonth=month(thedate,label=T)) %>%
+  ggplot(aes(x=home,y=away,colour=themonth)) + 
+    geom_jitter()
+@   
+  
+\end{frame}
+
+\begin{frame}[fragile]{The plot}
+  
+<<echo=F,fig=TRUE>>=
+goals %>% 
+  mutate(thedate=as.Date(date)) %>%
+  mutate(themonth=month(thedate,label=T)) %>%
+  ggplot(aes(x=home,y=away,
+    colour=themonth)) + 
+    geom_jitter()
+@   
+ 
+  
+\end{frame}
+
+\begin{frame}[fragile]{Original points, plotted according to frequency}
+  
+<<fig=T>>=
+goals %>% ggplot(aes(x=home,y=away)) +
+  stat_sum(aes(size = factor(..n..)), geom = "point") 
+@   
+  
+\end{frame}
+
+\begin{frame}[fragile]{Thank you}
+  
+  for your attention!
+  
+  \vspace{2in}
+
+    \verb-http://www.utsc.utoronto.ca/~butler/rug/-
+
+  
+\end{frame}
+
+\end{document}
